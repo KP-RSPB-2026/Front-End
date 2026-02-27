@@ -32,7 +32,7 @@ export default function DoctorLayout() {
           <h2 className="font-bold text-xl">Apotik A</h2>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="space-y-1 flex-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -50,12 +50,14 @@ export default function DoctorLayout() {
           ))}
         </nav>
 
+        <div className="pt-6 border-t border-white/10">
           <button
             onClick={handleLogout}
             className="w-full bg-red-500 text-white py-2 rounded text-sm"
           >
             Logout
           </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">

@@ -31,9 +31,9 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-lightGrey">
+    <div className="h-screen flex bg-lightGrey overflow-hidden">
       {/* SIDEBAR */}
-      <aside className="w-64 bg-darkBlue02 text-white flex flex-col">
+      <aside className="w-64 bg-darkBlue02 text-white flex flex-col flex-shrink-0 h-full">
         <div className="p-6 border-b border-white/10">
           <h2 className="text-lg font-bold">
             Admin Apotik
@@ -67,9 +67,9 @@ export default function AdminLayout() {
       </aside>
 
       {/* MAIN AREA */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* HEADER */}
-        <header className="bg-white shadow px-6 py-4 flex justify-between items-center">
+        <header className="bg-white shadow px-6 py-4 flex justify-between items-center flex-shrink-0">
           <h1 className="font-semibold text-lg">
             Sistem Informasi Apotik
           </h1>
@@ -80,7 +80,7 @@ export default function AdminLayout() {
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

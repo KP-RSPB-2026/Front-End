@@ -50,13 +50,12 @@ export default function DoctorLayout() {
           ))}
         </nav>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-auto inline-flex items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-        >
-          Logout
-        </button>
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-500 text-white py-2 rounded text-sm"
+          >
+            Logout
+          </button>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">

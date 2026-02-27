@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 
 export default function AdminDashboard() {
-  // DATA SIMULASI
+  /* =========================
+     DATA SIMULASI
+  ========================== */
+
   const totalMedicines = 48
   const totalRequests = 5
   const prescriptionsToday = 9
@@ -31,13 +34,39 @@ export default function AdminDashboard() {
     { id: 2, patient: 'Siti Aminah', totalItems: 1 },
   ]
 
+  // DATA STOK ANTAR APOTIK
+  const crossApotikStock = [
+    {
+      name: 'Paracetamol',
+      stocks: {
+        'Apotik A': 20,
+        'Apotik B': 50,
+        'Apotik C': 10,
+      },
+    },
+    {
+      name: 'Amoxicillin',
+      stocks: {
+        'Apotik A': 10,
+        'Apotik B': 0,
+        'Apotik C': 30,
+      },
+    },
+  ]
+
+  const getStatusColor = (stock) => {
+    if (stock === 0) return 'text-red-500'
+    if (stock <= 5) return 'text-yellow-600'
+    return 'text-green-600'
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-primary mb-6">
         Dashboard Admin Apotik
       </h1>
 
-      {/* STAT CARDS */}
+      {/* ================= STAT CARDS ================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded shadow">
           <p className="text-sm text-darkGrey">
@@ -67,7 +96,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* GRID UTAMA */}
+      {/* ================= GRID UTAMA ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* REQUEST TERBARU */}
         <div className="lg:col-span-2 bg-white p-6 rounded shadow">
@@ -100,8 +129,12 @@ export default function AdminDashboard() {
             <tbody>
               {recentRequests.map((r) => (
                 <tr key={r.id} className="border-t">
-                  <td className="p-2">{r.medicine}</td>
-                  <td className="p-2">{r.from}</td>
+                  <td className="p-2">
+                    {r.medicine}
+                  </td>
+                  <td className="p-2">
+                    {r.from}
+                  </td>
                   <td className="p-2 text-center">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -147,7 +180,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* RESEP MASUK */}
+      {/* ================= RESEP MASUK ================= */}
       <div className="bg-white p-6 rounded shadow mt-6">
         <h2 className="font-bold mb-4">
           Resep Masuk Hari Ini
@@ -167,7 +200,9 @@ export default function AdminDashboard() {
           <tbody>
             {recentPrescriptions.map((r) => (
               <tr key={r.id} className="border-t">
-                <td className="p-2">{r.patient}</td>
+                <td className="p-2">
+                  {r.patient}
+                </td>
                 <td className="p-2 text-center">
                   {r.totalItems}
                 </td>
@@ -175,6 +210,58 @@ export default function AdminDashboard() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ================= STOK ANTAR APOTIK ================= */}
+      <div className="bg-white p-6 rounded shadow mt-6">
+        <h2 className="font-bold mb-4">
+          Perbandingan Stok Antar Apotik
+        </h2>
+
+        <table className="w-full text-sm">
+          <thead className="bg-lightGrey">
+            <tr>
+              <th className="text-left p-2">
+                Obat
+              </th>
+              <th className="text-center p-2">
+                Apotik A
+              </th>
+              <th className="text-center p-2">
+                Apotik B
+              </th>
+              <th className="text-center p-2">
+                Apotik C
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {crossApotikStock.map((item, index) => (
+              <tr key={index} className="border-t">
+                <td className="p-2 font-medium">
+                  {item.name}
+                </td>
+
+                {Object.entries(item.stocks).map(
+                  ([apotik, stock]) => (
+                    <td
+                      key={apotik}
+                      className={`p-2 text-center font-medium ${getStatusColor(
+                        stock
+                      )}`}
+                    >
+                      {stock}
+                    </td>
+                  )
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <p className="text-xs text-darkGrey mt-3">
+          Hijau = aman, Kuning = menipis, Merah = habis.
+        </p>
       </div>
     </div>
   )

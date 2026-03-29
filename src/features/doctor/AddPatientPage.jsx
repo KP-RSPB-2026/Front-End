@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { doctorService } from './doctor.service'
 
 export default function AddPatientPage() {
   const [form, setForm] = useState({
@@ -9,6 +10,9 @@ export default function AddPatientPage() {
     address: '',
     phone: '',
   })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const handleChange = (e) => {
     setForm({
@@ -17,31 +21,36 @@ export default function AddPatientPage() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (
-      !form.name ||
-      !form.nik ||
-      !form.gender ||
-      !form.birthDate
-    ) {
-      alert('Lengkapi data wajib')
+    if (!form.name || !form.nik || !form.gender || !form.birthDate) {
+      setError('Lengkapi data wajib')
       return
     }
 
-    console.log('DATA PASIEN:', form)
-    alert('Pasien berhasil ditambahkan (simulasi)')
+    const payload = {
+      name: form.name,
+      idNumber: form.nik,
+      gender: form.gender === 'L' ? 'Laki-laki' : 'Perempuan',
+      dateOfBirth: form.birthDate,
+      address: form.address,
+      phoneNumber: form.phone,
+    }
 
-    // reset form
-    setForm({
-      name: '',
-      nik: '',
-      gender: '',
-      birthDate: '',
-      address: '',
-      phone: '',
-    })
+    try {
+      setSubmitting(true)
+      setError('')
+      await doctorService.createPatient(payload)
+      setSuccess('Pasien berhasil ditambahkan')
+      setForm({ name: '', nik: '', gender: '', birthDate: '', address: '', phone: '' })
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Gagal menambahkan pasien'
+      setError(message)
+      setSuccess('')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -143,10 +152,14 @@ export default function AddPatientPage() {
 
             <button
               type="submit"
-              className="bg-primary text-white px-6 py-2 rounded"
+              disabled={submitting}
+              className="bg-primary text-white px-6 py-2 rounded disabled:opacity-50"
             >
-              Simpan Pasien
+              {submitting ? 'Menyimpan...' : 'Simpan Pasien'}
             </button>
+
+            {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+            {success && <p className="text-sm text-green-600 mt-3">{success}</p>}
           </form>
         </div>
 

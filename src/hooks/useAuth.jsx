@@ -1,9 +1,14 @@
 import { createContext, useContext, useState } from 'react'
+import { authService } from '../features/auth/auth.service'
+import storage from '../lib/storage'
+
+const TOKEN_KEY = 'token'
+const USER_KEY = 'user'
 
 // Provide a safe default so consumers don't destructure undefined
 const AuthContext = createContext({
   user: null,
-  login: () => {
+  login: async () => {
     throw new Error('AuthProvider is missing')
   },
   logout: () => {
@@ -12,20 +17,22 @@ const AuthContext = createContext({
 })
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user')
-    return saved ? JSON.parse(saved) : null
-  })
+  const [user, setUser] = useState(() => storage.get(USER_KEY))
 
-  const login = ({ role }) => {
-    const fakeUser = { role }
-    setUser(fakeUser)
-    localStorage.setItem('user', JSON.stringify(fakeUser))
+  const login = async ({ email, password }) => {
+    const data = await authService.login({ email, password })
+
+    storage.set(USER_KEY, data)
+    storage.set(TOKEN_KEY, data.token)
+    setUser(data)
+
+    return data
   }
 
   const logout = () => {
+    storage.remove(USER_KEY)
+    storage.remove(TOKEN_KEY)
     setUser(null)
-    localStorage.removeItem('user')
   }
 
   return (

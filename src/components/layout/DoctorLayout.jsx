@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import logoIhc from '../../assets/images/image 1.png'
 
 export default function DoctorLayout() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
 
   const navItems = [
@@ -63,7 +63,12 @@ export default function DoctorLayout() {
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">
         <header className="bg-white shadow px-8 py-6 flex justify-between items-center border-l border-lightGrey">
           <h1 className="font-semibold text-lg text-darkBlue02">Sistem Informasi Apotik</h1>
-          <span className="text-sm text-darkGrey">Doctor Panel</span>
+          <div className="text-right">
+            <p className="text-sm text-darkGrey">Doctor Panel</p>
+            <p className="text-sm font-semibold text-darkBlue02">
+              {user?.name ? ` ${user.name}` : 'Dokter'}
+            </p>
+          </div>
         </header>
 
         <div className="flex-1 px-8 py-6 bg-white/80 backdrop-blur-sm border border-lightGrey/60 border-l-0 rounded-none rounded-tr-2xl rounded-bl-none rounded-br-2xl shadow-sm">

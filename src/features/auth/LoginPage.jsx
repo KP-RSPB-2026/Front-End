@@ -9,18 +9,33 @@ export default function LoginPage() {
   const [form, setForm] = useState({
     email: '',
     password: '',
-    role: 'doctor',
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    login({ role: form.role })
-    navigate(form.role === 'admin' ? '/admin/dashboard' : '/doctor/dashboard')
+    setLoading(true)
+    setError('')
+    try {
+      const data = await login({ email: form.email, password: form.password })
+      const role = data?.role
+      if (role === 'admin_apotik') {
+        navigate('/admin/dashboard')
+      } else {
+        navigate('/doctor/dashboard')
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Login gagal. Periksa email/password.'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -66,43 +81,17 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-darkBlue01">Masuk sebagai</p>
-          <div className="grid grid-cols-2 gap-3">
-            <label className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm cursor-pointer transition ${form.role === 'doctor' ? 'border-primary bg-primary/5' : 'border-lightGrey hover:border-primary/60'}`}>
-              <span className="font-medium text-darkBlue02">Dokter</span>
-              <input
-                type="radio"
-                name="role"
-                value="doctor"
-                checked={form.role === 'doctor'}
-                onChange={handleChange}
-                className="text-primary focus:ring-primary"
-              />
-            </label>
-
-            <label className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm cursor-pointer transition ${form.role === 'admin' ? 'border-primary bg-primary/5' : 'border-lightGrey hover:border-primary/60'}`}>
-              <span className="font-medium text-darkBlue02">Admin</span>
-              <input
-                type="radio"
-                name="role"
-                value="admin"
-                checked={form.role === 'admin'}
-                onChange={handleChange}
-                className="text-primary focus:ring-primary"
-              />
-            </label>
-          </div>
-        </div>
+        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-primary text-white py-3 text-sm font-semibold shadow-md transition hover:bg-darkBlue02 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          disabled={loading}
+          className="w-full rounded-lg bg-primary text-white py-3 text-sm font-semibold shadow-md transition hover:bg-darkBlue02 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Masuk
+          {loading ? 'Memproses...' : 'Masuk'}
         </button>
 
-        <p className="text-xs text-darkGrey text-center">Gunakan kredensial internal. Saat ini autentikasi masih disimulasikan.</p>
+        <p className="text-xs text-darkGrey text-center">Gunakan kredensial internal.</p>
       </form>
     </div>
   )

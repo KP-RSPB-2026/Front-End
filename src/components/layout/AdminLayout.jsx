@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function AdminLayout() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -22,6 +22,10 @@ export default function AdminLayout() {
     {
       name: 'Request Obat',
       path: '/admin/incoming-request',
+    },
+    {
+      name: 'Buat Request',
+      path: '/admin/request/create',
     },
   ]
 
@@ -74,9 +78,12 @@ export default function AdminLayout() {
             Sistem Informasi Apotik
           </h1>
 
-          <span className="text-sm text-darkGrey">
-            Admin Panel
-          </span>
+          <div className="text-right">
+            <p className="text-sm text-darkGrey">Admin Panel</p>
+            <p className="text-sm font-semibold text-darkBlue02">
+              {user?.name ? `Admin ${user.name}` : 'Admin'}
+            </p>
+          </div>
         </header>
 
         {/* CONTENT */}

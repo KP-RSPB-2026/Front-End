@@ -1,306 +1,304 @@
-import { useState } from 'react'
-import Modal from '../../components/common/Modal'
-import { useAuth } from '../../hooks/useAuth'
-
-const APOTIK_DOKTER = 'Apotik A'
-
-const initialPatients = [
-  { id: 1, name: 'Budi Santoso', age: 35 },
-  { id: 2, name: 'Siti Aminah', age: 29 },
-]
-
-const medicines = [
-  {
-    id: 1,
-    name: 'Paracetamol',
-    stocks: {
-      'Apotik A': 20,
-      'Apotik B': 50,
-      'Apotik C': 0,
-    },
-  },
-  {
-    id: 2,
-    name: 'Amoxicillin',
-    stocks: {
-      'Apotik A': 10,
-      'Apotik B': 30,
-      'Apotik C': 10,
-    },
-  },
-]
-
-const frequencies = [
-  { value: 1, label: '1x sehari' },
-  { value: 2, label: '2x sehari' },
-  { value: 3, label: '3x sehari' },
-]
-
-const mealTimings = [
-  { value: 'sebelum_makan', label: 'Sebelum makan' },
-  { value: 'sesudah_makan', label: 'Sesudah makan' },
-]
+import { useEffect, useMemo, useState } from 'react'
+import { doctorService } from './doctor.service'
 
 export default function CreatePrescriptionPage() {
-  const { user } = useAuth()
-
-  const [patients, setPatients] = useState(initialPatients)
-  const [selectedPatient, setSelectedPatient] = useState(null)
-  const [medicineId, setMedicineId] = useState('')
+  const [patients, setPatients] = useState([])
+  const [medicines, setMedicines] = useState([])
+  const [selectedPatientId, setSelectedPatientId] = useState('')
+  const [selectedMedicineId, setSelectedMedicineId] = useState('')
   const [quantity, setQuantity] = useState('')
-  const [frequency, setFrequency] = useState('')
+  const [dosageInstructions, setDosageInstructions] = useState('')
   const [mealTiming, setMealTiming] = useState('')
+  const [duration, setDuration] = useState('')
   const [items, setItems] = useState([])
-  const [patientModalOpen, setPatientModalOpen] = useState(false)
-  const [newPatient, setNewPatient] = useState({ name: '', age: '' })
+  const [diagnosis, setDiagnosis] = useState('')
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-  const selectedMedicine = medicines.find((m) => m.id === Number(medicineId))
-  const selectedMedicineStocks = selectedMedicine ? Object.entries(selectedMedicine.stocks) : []
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError('')
+        const [p, m] = await Promise.all([
+          doctorService.listPatients(),
+          doctorService.listMedicines(),
+        ])
+        setPatients(p)
+        setMedicines(m)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Gagal memuat data pasien/obat'
+        setError(message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
+  }, [])
+
+  const selectedMedicine = useMemo(
+    () => medicines.find((m) => String(m._id) === String(selectedMedicineId)),
+    [medicines, selectedMedicineId]
+  )
 
   const addMedicine = () => {
-    if (!selectedMedicine || !quantity || !frequency || !mealTiming) {
-      alert('Lengkapi data obat')
+    setSuccess('')
+    setError('')
+
+    if (!selectedMedicine) {
+      setError('Pilih obat terlebih dahulu')
+      return
+    }
+    if (!quantity || Number(quantity) <= 0) {
+      setError('Jumlah obat harus lebih dari 0')
+      return
+    }
+    if (!dosageInstructions) {
+      setError('Instruksi dosis wajib diisi')
+      return
+    }
+    if (!mealTiming) {
+      setError('Pilih waktu minum obat')
       return
     }
 
     const qtyNumber = Number(quantity)
-    if (Number.isNaN(qtyNumber) || qtyNumber <= 0) {
-      alert('Jumlah tidak valid')
-      return
-    }
 
-    if (qtyNumber > selectedMedicine.stocks[APOTIK_DOKTER]) {
-      alert('Jumlah melebihi stok')
-      return
-    }
-
-    setItems([
-      ...items,
+    setItems((prev) => [
+      ...prev,
       {
-        medicine: selectedMedicine.name,
+        medicineId: selectedMedicine._id,
+        name: selectedMedicine.name,
+        unit: selectedMedicine.unit,
+        stock: selectedMedicine.stock,
         quantity: qtyNumber,
-        frequency,
+        dosageInstructions,
         mealTiming,
+        duration: duration || '',
       },
     ])
 
-    setMedicineId('')
+    setSelectedMedicineId('')
     setQuantity('')
-    setFrequency('')
+    setDosageInstructions('')
     setMealTiming('')
+    setDuration('')
   }
 
   const removeItem = (index) => {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  const handleAddPatient = () => {
-    if (!newPatient.name || !newPatient.age) {
-      alert('Nama dan umur wajib diisi')
+  const submitPrescription = async () => {
+    setSuccess('')
+    setError('')
+
+    if (!selectedPatientId) {
+      setError('Pasien wajib dipilih')
       return
     }
-
-    const ageNumber = Number(newPatient.age)
-    if (Number.isNaN(ageNumber) || ageNumber <= 0) {
-      alert('Umur tidak valid')
-      return
-    }
-
-    const newEntry = {
-      id: Date.now(),
-      name: newPatient.name,
-      age: ageNumber,
-    }
-
-    setPatients((prev) => [...prev, newEntry])
-    setSelectedPatient(newEntry)
-    setNewPatient({ name: '', age: '' })
-    setPatientModalOpen(false)
-  }
-
-  const submitPrescription = () => {
-    if (!selectedPatient || items.length === 0) {
-      alert('Pasien dan obat wajib diisi')
+    if (items.length === 0) {
+      setError('Tambahkan minimal 1 obat')
       return
     }
 
     const payload = {
-      patient: selectedPatient,
-      apotik: APOTIK_DOKTER,
-      items,
-      doctorRole: user?.role,
+      patient: Number(selectedPatientId),
+      diagnosis: diagnosis || undefined,
+      notes: notes || undefined,
+      medicines: items.map((item) => ({
+        medicine: Number(item.medicineId),
+        quantity: Number(item.quantity),
+        dosageInstructions: item.mealTiming
+          ? `${item.dosageInstructions} (${item.mealTiming})`
+          : item.dosageInstructions,
+        duration: item.duration || undefined,
+      })),
     }
 
-    console.log('RESEP FINAL:', payload)
-    alert('Resep berhasil disimpan (simulasi)')
+    try {
+      setSubmitting(true)
+      await doctorService.createPrescription(payload)
+      setSuccess('Resep berhasil dibuat')
+      setItems([])
+      setSelectedPatientId('')
+      setDiagnosis('')
+      setNotes('')
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Gagal membuat resep'
+      setError(message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
-    <>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-darkGrey">Modul Dokter</p>
-          <h1 className="text-2xl font-bold text-primary">Buat Resep – {APOTIK_DOKTER}</h1>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-darkGrey">
-          <span className="inline-flex items-center gap-2 rounded-full bg-green/10 text-green px-3 py-1 font-semibold">
-            Lokasi aktif: {APOTIK_DOKTER}
-          </span>
+          <h1 className="text-2xl font-bold text-primary">Buat Resep</h1>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* FORM */}
-        <div className="lg:col-span-2 bg-white border border-gray-100 p-6 rounded-2xl shadow-sm">
-          <div className="mb-5">
-            <label className="block font-semibold text-sm mb-1">Pasien</label>
-            <div className="flex gap-3">
+        <div className="lg:col-span-2 bg-white border border-gray-100 p-6 rounded-2xl shadow-sm space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-semibold text-sm mb-1">Pasien</label>
               <select
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                value={selectedPatient?.id || ''}
-                onChange={(e) =>
-                  setSelectedPatient(
-                    patients.find((p) => p.id === Number(e.target.value)) || null
-                  )
-                }
+                value={selectedPatientId}
+                onChange={(e) => setSelectedPatientId(e.target.value)}
+                disabled={loading}
               >
                 <option value="">-- Pilih Pasien --</option>
                 {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.age} th)
+                  <option key={p._id} value={p._id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-sm mb-1">Diagnosis (opsional)</label>
+              <input
+                type="text"
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
+                placeholder="Misal: Infeksi saluran pernapasan"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-sm mb-1">Catatan (opsional)</label>
+            <textarea
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Instruksi tambahan untuk apotik"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">Tambah Obat</h2>
+              <span className="text-xs text-darkGrey">Pastikan stok mencukupi</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <select
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={selectedMedicineId}
+                onChange={(e) => setSelectedMedicineId(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Pilih Obat</option>
+                {medicines.map((m) => (
+                  <option key={m._id} value={m._id}>
+                    {m.name} ({m.stock})
                   </option>
                 ))}
               </select>
 
+              <input
+                type="number"
+                placeholder="Jumlah"
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                min="1"
+              />
 
+              <select
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={dosageInstructions}
+                onChange={(e) => setDosageInstructions(e.target.value)}
+              >
+                <option value="">Instruksi dosis (wajib)</option>
+                <option value="1 x sehari">1 x sehari</option>
+                <option value="2 x sehari">2 x sehari</option>
+                <option value="3 x sehari">3 x sehari</option>
+              </select>
+
+              <select
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={mealTiming}
+                onChange={(e) => setMealTiming(e.target.value)}
+              >
+                <option value="">Waktu minum</option>
+                <option value="sebelum makan">Sebelum makan</option>
+                <option value="sesudah makan">Sesudah makan</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder="Durasi (opsional, mis: 5 hari)"
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </div>
+
+            {selectedMedicine && (
+              <div className="rounded-xl border bg-lightGrey/60 p-4 text-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-primary">Info Obat</h3>
+                  <span className="text-xs text-darkGrey">Stok: {selectedMedicine.stock}</span>
+                </div>
+                <p className="text-sm text-darkGrey">Kategori: {selectedMedicine.category || '-'}</p>
+                <p className="text-sm text-darkGrey">Dosis: {selectedMedicine.dosage || '-'}</p>
+                <p className="text-sm text-darkGrey">Harga: Rp {selectedMedicine.price}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={addMedicine}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold shadow hover:bg-darkBlue02 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+              >
+                + Tambah ke Resep
+              </button>
             </div>
           </div>
 
-          {selectedPatient && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Tambah Obat</h2>
-                <span className="text-xs text-darkGrey">Pastikan stok mencukupi</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select
-                  className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  value={medicineId}
-                  onChange={(e) => setMedicineId(e.target.value)}
-                >
-                  <option value="">Pilih Obat</option>
-                  {medicines.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="number"
-                  placeholder="Jumlah"
-                  className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  min="1"
-                />
-
-                <select
-                  className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  value={frequency}
-                  onChange={(e) => setFrequency(e.target.value)}
-                >
-                  <option value="">Frekuensi</option>
-                  {frequencies.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  value={mealTiming}
-                  onChange={(e) => setMealTiming(e.target.value)}
-                >
-                  <option value="">Waktu Minum</option>
-                  {mealTimings.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedMedicine && (
-                <div className="rounded-xl border bg-lightGrey/60 p-4 text-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-primary">Stok semua apotik</h3>
-                    <span className="text-xs text-darkGrey">Obat dipilih: {selectedMedicine.name}</span>
-                  </div>
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-darkGrey">
-                        <th className="py-1">Apotik</th>
-                        <th className="py-1 text-right">Stok</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedMedicineStocks.map(([apotik, stok]) => (
-                        <tr key={apotik} className="border-t border-gray-100">
-                          <td className="py-1">
-                            {apotik}
-                            {apotik === APOTIK_DOKTER && (
-                              <span className="ml-2 text-[11px] text-green font-semibold">
-                                (Lokasi Anda)
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-1 text-right font-semibold">{stok} unit</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <button
-                onClick={addMedicine}
-                className="inline-flex items-center justify-center bg-green text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition"
-              >
-                + Tambah Obat
-              </button>
-            </div>
-          )}
-
           {items.length > 0 && (
-            <div className="mt-6">
-              <h2 className="font-semibold mb-3">Daftar Obat</h2>
+            <div className="mt-4">
+              <h3 className="font-semibold mb-3">Daftar Obat</h3>
               <div className="overflow-hidden rounded-xl border">
                 <table className="w-full text-sm">
-                  <thead className="bg-lightGrey">
+                  <thead className="bg-lightGrey/60 text-darkGrey">
                     <tr>
-                      <th className="p-2 text-left">Obat</th>
-                      <th className="p-2">Jumlah</th>
-                      <th className="p-2">Frekuensi</th>
-                      <th className="p-2">Waktu</th>
-                      <th className="p-2"></th>
+                      <th className="text-left p-2">Obat</th>
+                      <th className="text-left p-2">Jumlah</th>
+                      <th className="text-left p-2">Waktu Minum</th>
+                      <th className="text-left p-2">Instruksi</th>
+                      <th className="text-left p-2">Durasi</th>
+                      <th className="p-2 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-2">{item.medicine}</td>
-                        <td className="p-2 text-center">{item.quantity}</td>
-                        <td className="p-2 text-center">{item.frequency}x</td>
-                        <td className="p-2 text-center">
-                          {mealTimings.find((m) => m.value === item.mealTiming)?.label}
-                        </td>
-                        <td className="p-2 text-center">
+                    {items.map((item, idx) => (
+                      <tr key={idx} className="border-t">
+                        <td className="p-2">{item.name}</td>
+                        <td className="p-2">{item.quantity} {item.unit}</td>
+                        <td className="p-2">{item.mealTiming || '-'}</td>
+                        <td className="p-2">{item.dosageInstructions}</td>
+                        <td className="p-2">{item.duration || '-'}</td>
+                        <td className="p-2 text-right">
                           <button
-                            onClick={() => removeItem(i)}
+                            type="button"
+                            onClick={() => removeItem(idx)}
                             className="text-red-500 hover:underline"
                           >
                             Hapus
@@ -314,79 +312,35 @@ export default function CreatePrescriptionPage() {
             </div>
           )}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-4 flex justify-end">
             <button
+              type="button"
               onClick={submitPrescription}
-              className="bg-primary text-white px-6 py-2 rounded-lg shadow hover:shadow-md transition"
+              disabled={submitting}
+              className="rounded-lg bg-primary text-white px-5 py-2 text-sm font-semibold shadow hover:bg-darkBlue02 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
             >
-              Simpan Resep
+              {submitting ? 'Menyimpan...' : 'Simpan Resep'}
             </button>
           </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {success && <p className="text-sm text-green-600">{success}</p>}
         </div>
 
-        {/* RINGKASAN */}
-        <div className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm h-fit space-y-3">
-          <h2 className="font-bold">Ringkasan</h2>
-          <p className="text-sm text-darkGrey">Pasien: {selectedPatient?.name || '-'}</p>
-          <p className="text-sm text-darkGrey">Total Obat: {items.length}</p>
-
-          {selectedPatient && items.length > 0 && (
-            <div className="pt-3 border-t">
-              <h3 className="text-sm font-semibold mb-2">Rincian</h3>
-              <ul className="space-y-1 text-sm text-darkGrey">
-                {items.map((item, i) => (
-                  <li key={i} className="flex justify-between">
-                    <span>{item.medicine}</span>
-                    <span className="font-semibold">{item.quantity}x</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm space-y-4">
+          <div>
+            <h3 className="font-semibold text-sm">Tips</h3>
+            <p className="text-sm text-darkGrey mt-1">Periksa alergi pasien sebelum menambahkan obat.</p>
+          </div>
+          <div className="rounded-xl border bg-lightGrey/40 p-3 text-sm text-darkGrey">
+            <p className="font-semibold text-darkBlue02">Catatan</p>
+            <ul className="list-disc list-inside space-y-1 mt-1">
+              <li>Jumlah obat tidak boleh melebihi stok tersedia.</li>
+              <li>Isi instruksi dosis dengan jelas.</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
-
-    <Modal open={patientModalOpen} onClose={() => setPatientModalOpen(false)}>
-      {/* <h3 className="text-lg font-semibold mb-3">Tambah Pasien</h3> */}
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium mb-1">Nama Lengkap</label>
-          <input
-            type="text"
-            className="w-full border rounded-lg px-3 py-2"
-            value={newPatient.name}
-            onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Umur</label>
-          <input
-            type="number"
-            min="0"
-            className="w-full border rounded-lg px-3 py-2"
-            value={newPatient.age}
-            onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => setPatientModalOpen(false)}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-darkGrey hover:bg-gray-100"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            onClick={handleAddPatient}
-            className="rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold shadow hover:shadow-md transition"
-          >
-            Simpan Pasien
-          </button>
-        </div>
-      </div>
-    </Modal>
-    </>
   )
 }

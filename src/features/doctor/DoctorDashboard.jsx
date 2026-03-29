@@ -1,30 +1,38 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { doctorService } from './doctor.service'
 
 export default function DoctorDashboard() {
-  // DATA SIMULASI
-  const totalPatients = 24
-  const totalPrescriptionsToday = 6
-  const totalMedicines = 12
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [stats, setStats] = useState({ patients: 0, prescriptions: 0, medicines: 0 })
+  const [recentPrescriptions, setRecentPrescriptions] = useState([])
+  const [lowStockMedicines, setLowStockMedicines] = useState([])
 
-  const recentPrescriptions = [
-    {
-      id: 1,
-      patient: 'Budi Santoso',
-      date: '16/02/2026',
-      totalItems: 2,
-    },
-    {
-      id: 2,
-      patient: 'Siti Aminah',
-      date: '16/02/2026',
-      totalItems: 1,
-    },
-  ]
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError('')
+        const data = await doctorService.getDashboard()
+        setStats(data.stats)
+        setRecentPrescriptions(data.recentPrescriptions)
+        setLowStockMedicines(data.lowStock)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Gagal memuat data dashboard'
+        setError(message)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  const lowStockMedicines = [
-    { name: 'Paracetamol', stock: 3 },
-    { name: 'Amoxicillin', stock: 2 },
-  ]
+    load()
+  }, [])
+
+  const todayCount = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return recentPrescriptions.filter((r) => (r.prescriptionDate || '').slice(0, 10) === today).length
+  }, [recentPrescriptions])
 
   return (
     <div>
@@ -39,16 +47,7 @@ export default function DoctorDashboard() {
             Total Pasien
           </p>
           <p className="text-2xl font-bold mt-2">
-            {totalPatients}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded shadow">
-          <p className="text-sm text-darkGrey">
-            Resep Hari Ini
-          </p>
-          <p className="text-2xl font-bold mt-2">
-            {totalPrescriptionsToday}
+            {loading ? '...' : stats.patients}
           </p>
         </div>
 
@@ -57,7 +56,7 @@ export default function DoctorDashboard() {
             Total Obat Tersedia
           </p>
           <p className="text-2xl font-bold mt-2">
-            {totalMedicines}
+            {loading ? '...' : stats.medicines}
           </p>
         </div>
       </div>
@@ -90,18 +89,30 @@ export default function DoctorDashboard() {
                 <th className="text-center p-2">
                   Jumlah Obat
                 </th>
+                <th className="text-center p-2">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody>
-              {recentPrescriptions.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-2">{r.patient}</td>
-                  <td className="p-2">{r.date}</td>
-                  <td className="p-2 text-center">
-                    {r.totalItems}
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td className="p-2" colSpan={4}>Memuat...</td></tr>
+              ) : recentPrescriptions.length === 0 ? (
+                <tr><td className="p-2" colSpan={4}>Belum ada resep</td></tr>
+              ) : (
+                recentPrescriptions.map((r) => (
+                  <tr key={r._id} className="border-t">
+                    <td className="p-2">{r.patient?.name || '-'}</td>
+                    <td className="p-2">{r.prescriptionDate ? r.prescriptionDate.split('T')[0] : '-'}</td>
+                    <td className="p-2 text-center">{r.medicines?.length ?? 0}</td>
+                    <td className="p-2 text-center">
+                      <Link to={`/doctor/prescription/${r._id}`} className="text-primary text-sm">
+                        Lihat Detail
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -112,11 +123,13 @@ export default function DoctorDashboard() {
             Stok Hampir Habis
           </h2>
 
-          {lowStockMedicines.length > 0 ? (
+          {loading ? (
+            <p className="text-sm text-darkGrey">Memuat...</p>
+          ) : lowStockMedicines.length > 0 ? (
             <ul className="space-y-3">
               {lowStockMedicines.map((med, i) => (
                 <li
-                  key={i}
+                  key={med._id || i}
                   className="flex justify-between text-sm"
                 >
                   <span>{med.name}</span>
@@ -135,6 +148,10 @@ export default function DoctorDashboard() {
           <hr className="my-4" />
         </div>
       </div>
+
+      {error && (
+        <p className="mt-4 text-sm text-red-600">{error}</p>
+      )}
     </div>
   )
 }

@@ -1,30 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { medicineService } from '../medicine/medicine.service'
 
 export default function StockManagementPage() {
-  const [medicines, setMedicines] = useState([
-    { id: 1, name: 'Paracetamol', stock: 20 },
-    { id: 2, name: 'Amoxicillin', stock: 5 },
-    { id: 3, name: 'Ibuprofen', stock: 0 },
-  ])
+  const [medicines, setMedicines] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [updatingId, setUpdatingId] = useState('')
+  const [error, setError] = useState('')
 
-  const updateStock = (id, amount) => {
-    setMedicines(
-      medicines.map((med) =>
-        med.id === id
-          ? { ...med, stock: med.stock + amount }
-          : med
-      )
-    )
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError('')
+        const data = await medicineService.list({ limit: 200 })
+        setMedicines(data)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Gagal memuat stok'
+        setError(message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
+  }, [])
+
+  const updateStock = async (id, amount) => {
+    const operation = amount > 0 ? 'add' : 'subtract'
+    const quantity = Math.abs(amount)
+
+    try {
+      setUpdatingId(id)
+      setError('')
+      const updated = await medicineService.updateStock(id, { quantity, operation })
+      setMedicines((prev) => prev.map((m) => (String(m._id) === String(id) ? updated : m)))
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Gagal memperbarui stok'
+      setError(message)
+    } finally {
+      setUpdatingId('')
+    }
   }
 
-  const getStatus = (stock) => {
+  const getStatus = (stock, minStock = 5) => {
     if (stock === 0)
       return {
         label: 'Habis',
         style: 'bg-red-100 text-red-600',
       }
 
-    if (stock <= 5)
+    if (stock <= minStock)
       return {
         label: 'Menipis',
         style: 'bg-yellow-100 text-yellow-600',
@@ -36,9 +61,7 @@ export default function StockManagementPage() {
     }
   }
 
-  const lowStock = medicines.filter(
-    (med) => med.stock <= 5
-  )
+  const lowStock = medicines.filter((med) => med.stock <= (med.minStock ?? 5))
 
   return (
     <div>
@@ -71,11 +94,15 @@ export default function StockManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {medicines.map((med) => {
-                const status = getStatus(med.stock)
+              {loading ? (
+                <tr><td className="p-2" colSpan={4}>Memuat...</td></tr>
+              ) : medicines.length === 0 ? (
+                <tr><td className="p-2" colSpan={4}>Belum ada data obat</td></tr>
+              ) : medicines.map((med) => {
+                const status = getStatus(med.stock, med.minStock)
 
                 return (
-                  <tr key={med.id} className="border-t">
+                  <tr key={med._id} className="border-t">
                     <td className="p-2">
                       {med.name}
                     </td>
@@ -94,19 +121,16 @@ export default function StockManagementPage() {
 
                     <td className="p-2 text-center space-x-2">
                       <button
-                        onClick={() =>
-                          updateStock(med.id, 1)
-                        }
-                        className="bg-green text-white px-2 py-1 rounded text-xs"
+                        onClick={() => updateStock(med._id, 1)}
+                        disabled={!!updatingId}
+                        className="bg-green text-white px-2 py-1 rounded text-xs disabled:opacity-50"
                       >
                         +1
                       </button>
 
                       <button
-                        onClick={() =>
-                          updateStock(med.id, -1)
-                        }
-                        disabled={med.stock === 0}
+                        onClick={() => updateStock(med._id, -1)}
+                        disabled={med.stock === 0 || !!updatingId}
                         className="bg-red-500 text-white px-2 py-1 rounded text-xs disabled:opacity-50"
                       >
                         -1
@@ -130,8 +154,7 @@ export default function StockManagementPage() {
           </p>
 
           <p className="text-sm mb-4">
-            Obat Menipis / Habis:{' '}
-            {lowStock.length}
+            Obat Menipis / Habis: {lowStock.length}
           </p>
 
           <hr className="my-4" />
@@ -143,14 +166,9 @@ export default function StockManagementPage() {
           {lowStock.length > 0 ? (
             <ul className="text-sm space-y-2">
               {lowStock.map((med) => (
-                <li
-                  key={med.id}
-                  className="flex justify-between"
-                >
+                <li key={med._id} className="flex justify-between">
                   <span>{med.name}</span>
-                  <span className="text-red-500">
-                    {med.stock}
-                  </span>
+                  <span className="text-red-500">{med.stock}</span>
                 </li>
               ))}
             </ul>
@@ -159,6 +177,8 @@ export default function StockManagementPage() {
               Semua stok dalam kondisi aman.
             </p>
           )}
+
+          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
         </div>
       </div>
     </div>

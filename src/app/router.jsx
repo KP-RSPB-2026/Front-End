@@ -43,6 +43,7 @@ const router = createBrowserRouter([
       { path: 'stock', element: <StockManagementPage /> },
       { path: 'incoming-request', element: <IncomingRequestPage /> },
       { path: 'request/create', element: <CreateTransferRequestPage /> },
+      { path: 'prescription/:id', element: <PrescriptionDetailPage /> },
       
     ],
   },

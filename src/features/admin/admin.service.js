@@ -38,6 +38,14 @@ export const adminService = {
     return res.data?.data
   },
 
+  updatePrescriptionStatus: async (id, { status, reason } = {}) => {
+    const res = await api.patch(`/prescriptions/${id}/status`, {
+      status,
+      reason,
+    })
+    return res.data?.data
+  },
+
   createTransferRequest: async ({ toPharmacy, medicines, notes, urgency }) => {
     const res = await api.post('/transfers/request', {
       toPharmacy,

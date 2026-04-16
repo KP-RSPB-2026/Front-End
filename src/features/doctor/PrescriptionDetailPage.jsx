@@ -1,11 +1,17 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { doctorService } from './doctor.service'
+import { adminService } from '../admin/admin.service'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function PrescriptionDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { user } = useAuth()
   const [prescription, setPrescription] = useState(null)
+  const [adminReason, setAdminReason] = useState('')
+  const [updatingStatus, setUpdatingStatus] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -36,12 +42,57 @@ export default function PrescriptionDetailPage() {
     return d.toLocaleDateString()
   }
 
+  const statusLabel = (value) => {
+    const labels = {
+      pending: 'Menunggu',
+      disiapkan: 'Diproses',
+      selesai: 'Diproses',
+      dibatalkan: 'Ditolak',
+    }
+    return labels[value] || value || '-'
+  }
+
+  const updatePrescriptionStatus = async (nextStatus) => {
+    try {
+      setUpdatingStatus(true)
+      setError('')
+
+      const trimmedReason = adminReason.trim()
+      if (nextStatus === 'dibatalkan' && !trimmedReason) {
+        setError('Alasan penolakan wajib diisi')
+        return
+      }
+
+      const updated = await adminService.updatePrescriptionStatus(id, {
+        status: nextStatus,
+        reason: trimmedReason,
+      })
+
+      setPrescription(updated)
+      if (trimmedReason) setAdminReason('')
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Gagal memperbarui status resep'
+      setError(message)
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const isAdmin = user?.role === 'admin_apotik'
+  const canTakeAction = isAdmin && prescription?.status === 'pending'
+
   return (
     <div className="bg-white p-6 rounded shadow">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-primary">Detail Resep</h1>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (location.pathname.startsWith('/admin')) {
+              navigate('/admin/dashboard')
+              return
+            }
+            navigate('/doctor/dashboard')
+          }}
           className="text-sm text-primary"
         >
           &larr; Kembali
@@ -71,7 +122,7 @@ export default function PrescriptionDetailPage() {
             </div>
             <div>
               <p className="text-darkGrey">Status</p>
-              <p className="font-semibold capitalize">{prescription.status || '-'}</p>
+              <p className="font-semibold">{statusLabel(prescription.status)}</p>
             </div>
           </div>
 
@@ -114,6 +165,37 @@ export default function PrescriptionDetailPage() {
               </tbody>
             </table>
           </div>
+
+          {canTakeAction && (
+            <div className="bg-lightGrey/40 border rounded p-4 space-y-3">
+              <h2 className="font-semibold">Aksi Admin Apotik</h2>
+              <textarea
+                value={adminReason}
+                onChange={(e) => setAdminReason(e.target.value)}
+                placeholder="Alasan (wajib jika ditolak, opsional jika disetujui)"
+                className="w-full border rounded px-3 py-2 text-sm"
+                rows={3}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="bg-green text-white px-3 py-2 rounded text-sm disabled:opacity-50"
+                  onClick={() => updatePrescriptionStatus('selesai')}
+                  disabled={updatingStatus}
+                >
+                  Setujui Resep
+                </button>
+                <button
+                  type="button"
+                  className="bg-red-500 text-white px-3 py-2 rounded text-sm disabled:opacity-50"
+                  onClick={() => updatePrescriptionStatus('dibatalkan')}
+                  disabled={updatingStatus}
+                >
+                  Tolak Resep
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

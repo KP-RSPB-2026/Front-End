@@ -17,7 +17,7 @@ export default function IncomingRequestPage() {
         setLoading(true)
         setError('')
         const [reqData, medData] = await Promise.all([
-          adminService.listTransfers({ status: 'pending', limit: 100 }),
+          adminService.listTransfers({ limit: 100 }),
           medicineService.list({ limit: 200 }),
         ])
         const filtered = user?.pharmacyCode

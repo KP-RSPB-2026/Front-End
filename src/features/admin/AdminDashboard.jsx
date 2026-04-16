@@ -37,6 +37,35 @@ export default function AdminDashboard() {
       .length
   }, [recentPrescriptions])
 
+  const transferStatusLabel = useMemo(
+    () => ({
+      pending: 'Menunggu',
+      diproses: 'Diproses',
+      dikirim: 'Dikirim',
+      diterima: 'Diterima',
+      ditolak: 'Ditolak',
+      dibatalkan: 'Dibatalkan',
+    }),
+    []
+  )
+
+  const prescriptionStatusLabel = useMemo(
+    () => ({
+      pending: 'Menunggu',
+      disiapkan: 'Diproses',
+      selesai: 'Diproses',
+      dibatalkan: 'Ditolak',
+    }),
+    []
+  )
+
+  const prescriptionStatusStyle = (status) => {
+    if (status === 'pending') return 'bg-yellow-100 text-yellow-700'
+    if (status === 'disiapkan' || status === 'selesai') return 'bg-blue-100 text-blue-700'
+    if (status === 'dibatalkan') return 'bg-red-100 text-red-600'
+    return 'bg-lightGrey text-darkGrey'
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-primary mb-6">Dashboard Admin Apotik</h1>
@@ -99,7 +128,7 @@ export default function AdminDashboard() {
                             : 'bg-green-100 text-green-700'
                         }`}
                       >
-                        {r.status}
+                        {transferStatusLabel[r.status] || r.status}
                       </span>
                     </td>
                   </tr>
@@ -139,18 +168,33 @@ export default function AdminDashboard() {
             <tr>
               <th className="text-left p-2">Pasien</th>
               <th className="text-center p-2">Jumlah Obat</th>
+              <th className="text-center p-2">Status</th>
+              <th className="text-center p-2">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="p-2" colSpan={2}>Memuat...</td></tr>
+              <tr><td className="p-2" colSpan={4}>Memuat...</td></tr>
             ) : recentPrescriptions.length === 0 ? (
-              <tr><td className="p-2" colSpan={2}>Belum ada resep</td></tr>
+              <tr><td className="p-2" colSpan={4}>Belum ada resep</td></tr>
             ) : (
               recentPrescriptions.map((r) => (
                 <tr key={r._id} className="border-t">
                   <td className="p-2">{r.patient?.name || '-'}</td>
                   <td className="p-2 text-center">{r.medicines?.length ?? 0}</td>
+                  <td className="p-2 text-center">
+                    <span className={`px-2 py-1 rounded text-xs ${prescriptionStatusStyle(r.status)}`}>
+                      {prescriptionStatusLabel[r.status] || r.status}
+                    </span>
+                  </td>
+                  <td className="p-2 text-center">
+                    <Link
+                      to={`/admin/prescription/${r._id}`}
+                      className="text-primary hover:underline"
+                    >
+                      Lihat Detail
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}

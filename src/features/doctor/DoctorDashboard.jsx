@@ -4,20 +4,31 @@ import { doctorService } from './doctor.service'
 
 export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true)
+  const [stockLoading, setStockLoading] = useState(true)
   const [error, setError] = useState('')
   const [stats, setStats] = useState({ patients: 0, prescriptions: 0, medicines: 0 })
   const [recentPrescriptions, setRecentPrescriptions] = useState([])
   const [lowStockMedicines, setLowStockMedicines] = useState([])
+  const [pharmacies, setPharmacies] = useState([])
+  const [selectedPharmacy, setSelectedPharmacy] = useState('')
+  const [selectedPharmacyStock, setSelectedPharmacyStock] = useState([])
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
         setError('')
-        const data = await doctorService.getDashboard()
+        const [data, pharmacyList] = await Promise.all([
+          doctorService.getDashboard(),
+          doctorService.listPharmacies(),
+        ])
         setStats(data.stats)
         setRecentPrescriptions(data.recentPrescriptions)
         setLowStockMedicines(data.lowStock)
+        setPharmacies(pharmacyList)
+        if (pharmacyList[0]?.code) {
+          setSelectedPharmacy(pharmacyList[0].code)
+        }
       } catch (err) {
         const message = err?.response?.data?.message || 'Gagal memuat data dashboard'
         setError(message)
@@ -28,6 +39,28 @@ export default function DoctorDashboard() {
 
     load()
   }, [])
+
+  useEffect(() => {
+    const loadSelectedPharmacyStock = async () => {
+      if (!selectedPharmacy) {
+        setSelectedPharmacyStock([])
+        return
+      }
+
+      try {
+        setStockLoading(true)
+        const medicines = await doctorService.listMedicines({ pharmacyCode: selectedPharmacy })
+        setSelectedPharmacyStock(medicines)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Gagal memuat stok apotek'
+        setError(message)
+      } finally {
+        setStockLoading(false)
+      }
+    }
+
+    loadSelectedPharmacyStock()
+  }, [selectedPharmacy])
 
   const todayCount = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
@@ -147,6 +180,54 @@ export default function DoctorDashboard() {
 
           <hr className="my-4" />
         </div>
+      </div>
+
+      <div className="mt-6 bg-white p-6 rounded shadow">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <h2 className="font-bold">Stok Obat Antar Apotek</h2>
+          <select
+            className="border rounded px-3 py-2 text-sm"
+            value={selectedPharmacy}
+            onChange={(e) => setSelectedPharmacy(e.target.value)}
+            disabled={loading || pharmacies.length === 0}
+          >
+            <option value="">Pilih apotek</option>
+            {pharmacies.map((pharmacy) => (
+              <option key={pharmacy.code} value={pharmacy.code}>
+                {pharmacy.code}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {stockLoading ? (
+          <p className="text-sm text-darkGrey">Memuat stok apotek...</p>
+        ) : selectedPharmacyStock.length === 0 ? (
+          <p className="text-sm text-darkGrey">Belum ada data obat untuk apotek ini</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-lightGrey">
+                <tr>
+                  <th className="text-left p-2">Kode</th>
+                  <th className="text-left p-2">Nama Obat</th>
+                  <th className="text-left p-2">Apotek</th>
+                  <th className="text-right p-2">Stok</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedPharmacyStock.map((medicine) => (
+                  <tr key={medicine._id} className="border-t">
+                    <td className="p-2">{medicine.code}</td>
+                    <td className="p-2">{medicine.name}</td>
+                    <td className="p-2">{medicine.pharmacyCode || selectedPharmacy}</td>
+                    <td className="p-2 text-right">{medicine.stock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {error && (

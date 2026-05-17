@@ -60,4 +60,19 @@ export const adminService = {
     const res = await api.get('/transfers/pharmacies')
     return res.data?.data ?? []
   },
+
+  listPrescriptions: async ({ status, page = 1, limit = 50 } = {}) => {
+    const res = await api.get('/prescriptions', { params: { status, page, limit } })
+    return res.data?.data ?? []
+  },
+
+  getPrescription: async (id) => {
+    const res = await api.get(`/prescriptions/${id}`)
+    return res.data?.data
+  },
+
+  updatePrescriptionStatus: async (id, status) => {
+    const res = await api.patch(`/prescriptions/${id}/status`, { status })
+    return res.data?.data
+  },
 }

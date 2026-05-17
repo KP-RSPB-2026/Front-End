@@ -31,8 +31,15 @@ export const doctorService = {
     return res.data?.data ?? []
   },
 
-  listMedicines: async ({ search } = {}) => {
-    const res = await api.get('/medicines', { params: { search, page: 1, limit: 200 } })
+  listMedicines: async ({ search, pharmacyCode } = {}) => {
+    const res = await api.get('/medicines', {
+      params: { search, pharmacyCode, page: 1, limit: 200 },
+    })
+    return res.data?.data ?? []
+  },
+
+  listPharmacies: async () => {
+    const res = await api.get('/medicines/pharmacies')
     return res.data?.data ?? []
   },
 
@@ -44,6 +51,11 @@ export const doctorService = {
   createPatient: async (payload) => {
     const res = await api.post('/patients', payload)
     return res.data?.data
+  },
+
+  listPrescriptions: async ({ status, page = 1, limit = 100 } = {}) => {
+    const res = await api.get('/prescriptions', { params: { status, page, limit } })
+    return res.data?.data ?? []
   },
 
   getPrescription: async (id) => {

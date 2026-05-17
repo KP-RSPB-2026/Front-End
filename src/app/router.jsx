@@ -8,11 +8,13 @@ import LoginPage from '../features/auth/LoginPage'
 import DoctorDashboard from '../features/doctor/DoctorDashboard'
 import CreatePrescriptionPage from '../features/doctor/CreatePrescriptionPage'
 import PrescriptionDetailPage from '../features/doctor/PrescriptionDetailPage'
+import PrescriptionStatusPage from '../features/doctor/PrescriptionStatusPage'
 import AdminDashboard from '../features/admin/AdminDashboard'
 import MedicineManagementPage from '../features/admin/MedicineManagementPage'
 import StockManagementPage from '../features/admin/StockManagement'
 import IncomingRequestPage from '../features/admin/IncomingRequestPage'
 import CreateTransferRequestPage from '../features/admin/CreateTransferRequestPage'
+import PrescriptionApprovalPage from '../features/admin/PrescriptionApprovalPage'
 
 // import AddPatientPage from '../features/doctor/AddPatientPage'
 
@@ -29,6 +31,7 @@ const router = createBrowserRouter([
     children: [
       { path: 'dashboard', element: <DoctorDashboard /> },
       { path: 'prescription/create', element: <CreatePrescriptionPage /> },
+      { path: 'prescription/status', element: <PrescriptionStatusPage /> },
       { path: 'prescription/:id', element: <PrescriptionDetailPage /> },
       // { path: 'patient/add', element: <AddPatientPage /> },
     ],
@@ -42,6 +45,7 @@ const router = createBrowserRouter([
       { path: 'medicine', element: <MedicineManagementPage /> },
       { path: 'stock', element: <StockManagementPage /> },
       { path: 'incoming-request', element: <IncomingRequestPage /> },
+      { path: 'prescription-approval', element: <PrescriptionApprovalPage /> },
       { path: 'request/create', element: <CreateTransferRequestPage /> },
       { path: 'prescription/:id', element: <PrescriptionDetailPage /> },
       

@@ -4,8 +4,13 @@ import { doctorService } from './doctor.service'
 export default function CreatePrescriptionPage() {
   const [patients, setPatients] = useState([])
   const [medicines, setMedicines] = useState([])
+  const [pharmacies, setPharmacies] = useState([])
+  const [crossPharmacyStock, setCrossPharmacyStock] = useState([])
+  const [crossStockLoading, setCrossStockLoading] = useState(false)
   const [selectedPatientId, setSelectedPatientId] = useState('')
   const [selectedMedicineId, setSelectedMedicineId] = useState('')
+  const [medicineDropdownOpen, setMedicineDropdownOpen] = useState(false)
+  const [medicineFilter, setMedicineFilter] = useState('')
   const [quantity, setQuantity] = useState('')
   const [dosageInstructions, setDosageInstructions] = useState('')
   const [mealTiming, setMealTiming] = useState('')
@@ -23,12 +28,14 @@ export default function CreatePrescriptionPage() {
       try {
         setLoading(true)
         setError('')
-        const [p, m] = await Promise.all([
+        const [p, m, ph] = await Promise.all([
           doctorService.listPatients(),
           doctorService.listMedicines(),
+          doctorService.listPharmacies(),
         ])
         setPatients(p)
         setMedicines(m)
+        setPharmacies(ph)
       } catch (err) {
         const message = err?.response?.data?.message || 'Gagal memuat data pasien/obat'
         setError(message)
@@ -44,6 +51,71 @@ export default function CreatePrescriptionPage() {
     () => medicines.find((m) => String(m._id) === String(selectedMedicineId)),
     [medicines, selectedMedicineId]
   )
+
+  const filteredMedicines = useMemo(() => {
+    const keyword = medicineFilter.trim().toLowerCase()
+    if (!keyword) return medicines
+
+    return medicines.filter((medicine) => {
+      const name = String(medicine.name || '').toLowerCase()
+      const code = String(medicine.code || '').toLowerCase()
+      const genericName = String(medicine.genericName || '').toLowerCase()
+      return (
+        name.includes(keyword) ||
+        code.includes(keyword) ||
+        genericName.includes(keyword)
+      )
+    })
+  }, [medicines, medicineFilter])
+
+  useEffect(() => {
+    const loadCrossPharmacyStock = async () => {
+      if (!selectedMedicine || pharmacies.length === 0) {
+        setCrossPharmacyStock([])
+        return
+      }
+
+      try {
+        setCrossStockLoading(true)
+        const rows = await Promise.all(
+          pharmacies.map(async (pharmacy) => {
+            const meds = await doctorService.listMedicines({
+              pharmacyCode: pharmacy.code,
+              search: selectedMedicine.name,
+            })
+
+            const matchedMedicine = meds.find((m) => m.name === selectedMedicine.name)
+
+            return {
+              code: pharmacy.code,
+              stock: matchedMedicine ? Number(matchedMedicine.stock) : 0,
+              minStock: matchedMedicine ? Number(matchedMedicine.minStock || 0) : 0,
+            }
+          })
+        )
+
+        setCrossPharmacyStock(rows)
+      } catch (_err) {
+        setCrossPharmacyStock([])
+      } finally {
+        setCrossStockLoading(false)
+      }
+    }
+
+    loadCrossPharmacyStock()
+  }, [selectedMedicine, pharmacies])
+
+  const getStockBadgeClass = (stock, minStock) => {
+    if (stock <= 0) return 'bg-red-100 text-red-700'
+    if (minStock > 0 && stock <= minStock) return 'bg-yellow-100 text-yellow-700'
+    return 'bg-green-100 text-green-700'
+  }
+
+  const getStockLabel = (stock, minStock) => {
+    if (stock <= 0) return 'Habis'
+    if (minStock > 0 && stock <= minStock) return 'Rendah'
+    return 'Aman'
+  }
 
   const addMedicine = () => {
     setSuccess('')
@@ -83,10 +155,22 @@ export default function CreatePrescriptionPage() {
     ])
 
     setSelectedMedicineId('')
+    setMedicineFilter('')
+    setMedicineDropdownOpen(false)
     setQuantity('')
     setDosageInstructions('')
     setMealTiming('')
     setDuration('')
+  }
+
+  const selectedMedicineLabel = selectedMedicine
+    ? `${selectedMedicine.name} (${selectedMedicine.stock})`
+    : 'Pilih Obat'
+
+  const handleSelectMedicine = (medicine) => {
+    setSelectedMedicineId(String(medicine._id))
+    setMedicineDropdownOpen(false)
+    setMedicineFilter('')
   }
 
   const removeItem = (index) => {
@@ -195,19 +279,61 @@ export default function CreatePrescriptionPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                value={selectedMedicineId}
-                onChange={(e) => setSelectedMedicineId(e.target.value)}
-                disabled={loading}
+              <div
+                className="relative md:col-span-2"
+                tabIndex={-1}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) {
+                    setMedicineDropdownOpen(false)
+                    setMedicineFilter('')
+                  }
+                }}
               >
-                <option value="">Pilih Obat</option>
-                {medicines.map((m) => (
-                  <option key={m._id} value={m._id}>
-                    {m.name} ({m.stock})
-                  </option>
-                ))}
-              </select>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setMedicineDropdownOpen((prev) => !prev)}
+                  className="w-full border rounded-lg px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+                >
+                  {selectedMedicineLabel}
+                </button>
+
+                {medicineDropdownOpen && (
+                  <div className="absolute z-20 mt-2 w-full rounded-lg border bg-white shadow-lg">
+                    <div className="p-2 border-b">
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Cari obat di dropdown..."
+                        value={medicineFilter}
+                        onChange={(e) => setMedicineFilter(e.target.value)}
+                        className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      {filteredMedicines.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-darkGrey">Obat tidak ditemukan</p>
+                      ) : (
+                        filteredMedicines.map((medicine) => (
+                          <button
+                            key={medicine._id}
+                            type="button"
+                            onClick={() => handleSelectMedicine(medicine)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-lightGrey/60"
+                          >
+                            <span className="font-medium">{medicine.name}</span>
+                            <span className="text-darkGrey"> ({medicine.stock})</span>
+                            {medicine.code ? (
+                              <span className="ml-2 text-xs text-darkGrey">{medicine.code}</span>
+                            ) : null}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <input
                 type="number"
@@ -257,6 +383,41 @@ export default function CreatePrescriptionPage() {
                 <p className="text-sm text-darkGrey">Kategori: {selectedMedicine.category || '-'}</p>
                 <p className="text-sm text-darkGrey">Dosis: {selectedMedicine.dosage || '-'}</p>
                 <p className="text-sm text-darkGrey">Harga: Rp {selectedMedicine.price}</p>
+                <div className="mt-3">
+                  <p className="text-sm font-semibold text-darkBlue02">Stok Antar Apotek</p>
+                  {crossStockLoading ? (
+                    <p className="text-xs text-darkGrey mt-1">Memuat stok APTA/APTB/APTC...</p>
+                  ) : crossPharmacyStock.length === 0 ? (
+                    <p className="text-xs text-darkGrey mt-1">Data stok antar apotek belum tersedia</p>
+                  ) : (
+                    <div className="mt-2 overflow-hidden rounded-lg border bg-white">
+                      <table className="w-full text-xs">
+                        <thead className="bg-lightGrey/60 text-darkGrey">
+                          <tr>
+                            <th className="text-left px-2 py-1.5">Apotek</th>
+                            <th className="text-right px-2 py-1.5">Stok</th>
+                            <th className="text-center px-2 py-1.5">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {crossPharmacyStock.map((row) => (
+                            <tr key={row.code} className="border-t">
+                              <td className="px-2 py-1.5 font-medium">{row.code}</td>
+                              <td className="px-2 py-1.5 text-right">{row.stock}</td>
+                              <td className="px-2 py-1.5 text-center">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${getStockBadgeClass(row.stock, row.minStock)}`}
+                                >
+                                  {getStockLabel(row.stock, row.minStock)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

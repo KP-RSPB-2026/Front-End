@@ -11,19 +11,52 @@ export default function MedicineManagementPage() {
     id: null,
     code: '',
     name: '',
+    genericName: '',
     category: '',
+    manufacturer: '',
+    dosage: '',
     unit: '',
     stock: '',
+    minStock: '',
     price: '',
+    expiryDate: '',
+    batchNumber: '',
+    description: '',
   })
 
   const [isEditing, setIsEditing] = useState(false)
 
+  const generateMedicineCode = (name = '') => {
+    const clean = String(name).replace(/[^a-zA-Z0-9\s]/g, '').trim()
+    const parts = clean.split(/\s+/).filter(Boolean)
+    const prefix = (parts.map((p) => p.slice(0, 2)).join('').slice(0, 6) || 'MED').toUpperCase()
+    const suffix = String(Date.now()).slice(-5)
+    return `${prefix}-${suffix}`
+  }
+
   const handleChange = (e) => {
+    const { name, value } = e.target
+
+    if (name === 'name' && !isEditing && !form.code) {
+      setForm({
+        ...form,
+        name: value,
+        code: generateMedicineCode(value),
+      })
+      return
+    }
+
     setForm({
       ...form,
-      [e.target.name]: e.target.value,
+      [name]: value,
     })
+  }
+
+  const handleGenerateCode = () => {
+    setForm((prev) => ({
+      ...prev,
+      code: generateMedicineCode(prev.name),
+    }))
   }
 
   useEffect(() => {
@@ -52,13 +85,29 @@ export default function MedicineManagementPage() {
       return
     }
 
+    const stockValue = form.stock === '' ? 0 : Number(form.stock)
+    const minStockValue = form.minStock === '' ? 10 : Number(form.minStock)
+    const priceValue = form.price === '' ? 0 : Number(form.price)
+
+    if (stockValue < 0 || minStockValue < 0 || priceValue < 0) {
+      alert('Stok, minimum stok, dan harga tidak boleh negatif')
+      return
+    }
+
     const payload = {
       code: form.code,
       name: form.name,
+      genericName: form.genericName || undefined,
       category: form.category,
+      manufacturer: form.manufacturer || undefined,
+      description: form.description || undefined,
+      dosage: form.dosage || undefined,
       unit: form.unit,
-      stock: form.stock ? Number(form.stock) : 0,
-      price: form.price ? Number(form.price) : 0,
+      stock: stockValue,
+      minStock: minStockValue,
+      price: priceValue,
+      expiryDate: form.expiryDate || undefined,
+      batchNumber: form.batchNumber || undefined,
     }
 
     const save = async () => {
@@ -73,7 +122,22 @@ export default function MedicineManagementPage() {
           setMedicines((prev) => [created, ...prev])
         }
         setIsEditing(false)
-        setForm({ id: null, code: '', name: '', category: '', unit: '', stock: '', price: '' })
+        setForm({
+          id: null,
+          code: '',
+          name: '',
+          genericName: '',
+          category: '',
+          manufacturer: '',
+          dosage: '',
+          unit: '',
+          stock: '',
+          minStock: '',
+          price: '',
+          expiryDate: '',
+          batchNumber: '',
+          description: '',
+        })
       } catch (err) {
         const message = err?.response?.data?.message || 'Gagal menyimpan obat'
         setError(message)
@@ -90,12 +154,39 @@ export default function MedicineManagementPage() {
       id: medicine._id,
       code: medicine.code || '',
       name: medicine.name || '',
+      genericName: medicine.genericName || '',
       category: medicine.category || '',
+      manufacturer: medicine.manufacturer || '',
+      dosage: medicine.dosage || '',
       unit: medicine.unit || '',
       stock: medicine.stock ?? '',
+      minStock: medicine.minStock ?? '',
       price: medicine.price ?? '',
+      expiryDate: medicine.expiryDate ? String(medicine.expiryDate).slice(0, 10) : '',
+      batchNumber: medicine.batchNumber || '',
+      description: medicine.description || '',
     })
     setIsEditing(true)
+  }
+
+  const resetForm = () => {
+    setIsEditing(false)
+    setForm({
+      id: null,
+      code: '',
+      name: '',
+      genericName: '',
+      category: '',
+      manufacturer: '',
+      dosage: '',
+      unit: '',
+      stock: '',
+      minStock: '',
+      price: '',
+      expiryDate: '',
+      batchNumber: '',
+      description: '',
+    })
   }
 
   const handleDelete = async (id) => {
@@ -132,14 +223,24 @@ export default function MedicineManagementPage() {
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block text-sm mb-1">Kode Obat *</label>
-              <input
-                type="text"
-                name="code"
-                value={form.code}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="code"
+                  value={form.code}
+                  onChange={handleChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleGenerateCode}
+                  className="whitespace-nowrap border border-primary text-primary px-3 py-2 rounded text-sm"
+                >
+                  Auto
+                </button>
+              </div>
+              <p className="text-xs text-darkGrey mt-1">Kode bisa dibuat otomatis, tetap bisa diubah manual.</p>
             </div>
 
             <div className="mb-4">
@@ -155,28 +256,76 @@ export default function MedicineManagementPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm mb-1">Kategori *</label>
+              <label className="block text-sm mb-1">Nama Generik</label>
               <input
                 type="text"
+                name="genericName"
+                value={form.genericName}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Kategori *</label>
+              <select
                 name="category"
                 value={form.category}
                 onChange={handleChange}
                 className="w-full border rounded px-3 py-2"
                 required
+              >
+                <option value="">Pilih kategori</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Kapsul">Kapsul</option>
+                <option value="Sirup">Sirup</option>
+                <option value="Salep">Salep</option>
+                <option value="Injeksi">Injeksi</option>
+                <option value="Tetes">Tetes</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Produsen</label>
+              <input
+                type="text"
+                name="manufacturer"
+                value={form.manufacturer}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Dosis</label>
+              <input
+                type="text"
+                name="dosage"
+                value={form.dosage}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+                placeholder="Contoh: 500mg"
               />
             </div>
 
             <div className="mb-4">
               <label className="block text-sm mb-1">Satuan *</label>
-              <input
-                type="text"
+              <select
                 name="unit"
                 value={form.unit}
                 onChange={handleChange}
                 className="w-full border rounded px-3 py-2"
-                placeholder="tablet, kapsul, botol, dll"
                 required
-              />
+              >
+                <option value="">Pilih satuan</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Kapsul">Kapsul</option>
+                <option value="Botol">Botol</option>
+                <option value="Tube">Tube</option>
+                <option value="Strip">Strip</option>
+                <option value="Vial">Vial</option>
+              </select>
             </div>
 
             <div className="mb-4">
@@ -185,6 +334,18 @@ export default function MedicineManagementPage() {
                 type="number"
                 name="stock"
                 value={form.stock}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+                min="0"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Minimum Stok</label>
+              <input
+                type="number"
+                name="minStock"
+                value={form.minStock}
                 onChange={handleChange}
                 className="w-full border rounded px-3 py-2"
                 min="0"
@@ -203,6 +364,39 @@ export default function MedicineManagementPage() {
               />
             </div>
 
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Tanggal Kedaluwarsa</label>
+              <input
+                type="date"
+                name="expiryDate"
+                value={form.expiryDate}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm mb-1">Batch Number</label>
+              <input
+                type="text"
+                name="batchNumber"
+                value={form.batchNumber}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm mb-1">Deskripsi</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+                rows={3}
+              />
+            </div>
+
             <button
               type="submit"
               disabled={saving}
@@ -210,6 +404,16 @@ export default function MedicineManagementPage() {
             >
               {isEditing ? 'Update' : 'Simpan'}
             </button>
+
+            {isEditing && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-2 border border-gray-300 text-gray-700 px-4 py-2 rounded w-full"
+              >
+                Batal Edit
+              </button>
+            )}
           </form>
         </div>
 

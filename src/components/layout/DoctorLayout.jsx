@@ -1,14 +1,17 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import logoIhc from '../../assets/images/image 1.png'
+import { formatPharmacyName } from '../../utils/formatPharmacyName'
 
 export default function DoctorLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const pharmacyName = formatPharmacyName(user?.pharmacyCode)
 
   const navItems = [
     { to: '/doctor/dashboard', label: 'Dashboard' },
     { to: '/doctor/prescription/create', label: 'Buat Resep' },
+    { to: '/doctor/prescription/status', label: 'Status Resep' },
     // { to: '/doctor/patient/add', label: 'Tambah Pasien' },
   ]
 
@@ -29,7 +32,7 @@ export default function DoctorLayout() {
         </div>
 
         <div className="mb-8">
-          <h2 className="font-bold text-xl">Apotik A</h2>
+          <h2 className="font-bold text-xl text-center">{pharmacyName}</h2>
         </div>
 
         <nav className="space-y-1 flex-1">
@@ -62,9 +65,9 @@ export default function DoctorLayout() {
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">
         <header className="bg-white shadow px-8 py-6 flex justify-between items-center border-l border-lightGrey">
-          <h1 className="font-semibold text-lg text-darkBlue02">Sistem Informasi Apotik</h1>
+          <h1 className="font-semibold text-lg text-darkBlue02">Sistem Informasi {pharmacyName}</h1>
           <div className="text-right">
-            <p className="text-sm text-darkGrey">Doctor Panel</p>
+            
             <p className="text-sm font-semibold text-darkBlue02">
               {user?.name ? ` ${user.name}` : 'Dokter'}
             </p>
